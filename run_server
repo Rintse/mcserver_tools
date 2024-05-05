@@ -1,0 +1,6 @@
+#!/usr/local/bin/bash
+
+MEM_LIMIT=2G
+CPU_LIMIT=2
+
+tmux new-session -d -s mcserver -c /home/rintse/mcserver -E java -XX:ActiveProcessorCount="$CPU_LIMIT" -Xmx"$MEM_LIMIT" -Xms"$MEM_LIMIT" -jar server.jar --nogui

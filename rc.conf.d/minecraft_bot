@@ -1,0 +1,14 @@
+RCON_ADDR=""
+export RCON_ADDR
+
+RCON_PWD=""
+export RCON_PWD
+
+GUILD_ID=""
+export GUILD_ID
+
+DISCORD_TOKEN=""
+export DISCORD_TOKEN
+
+MC_START_CMD=""
+export MC_START_CMD

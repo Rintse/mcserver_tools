@@ -1,0 +1,11 @@
+MAX_EMPTY_SECS=$((30*60))
+export MAX_EMPTY_SECS
+
+POLL_INTERVAL_SECS=60
+export POLL_INTERVAL_SECS
+
+CMD_WAIT=0.1
+export CMD_WAIT
+
+TMUX_NAME=minecraft_server
+export TMUX_NAME

@@ -1,0 +1,39 @@
+#!/bin/sh
+
+# PROVIDE: minecraft_bot
+# REQUIRE: LOGIN DAEMON NETWORKING
+# KEYWORD: minecraft
+
+# Enable this script by adding:
+# minecraft_bot_enable="YES"
+# ... to /etc/rc.conf
+rc_debug=yes
+
+. /etc/rc.subr
+name=minecraft_bot
+
+rcvar=minecraft_bot_enable
+load_rc_config ${name}
+
+: ${minecraft_bot_user:=rintse}
+: ${minecraft_bot_group:=rintse}
+
+# This is the tool init launches
+command="/usr/sbin/daemon"
+
+pidfile="/var/run/${name}/${name}.pid"
+
+task="/usr/local/bin/${name}"
+procname="${task}"
+
+command_args="-p ${pidfile} -T ${name} ${task}"
+
+start_precmd="start_precmd"
+start_precmd()
+{
+    if [ ! -e "/var/run/${name}" ] ; then
+        install -d -o ${minecraft_bot_user} -g ${minecraft_bot_group} /var/run/${name};
+    fi
+}
+
+run_rc_command "$1"

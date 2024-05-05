@@ -1,0 +1,95 @@
+#!/usr/bin/env python3.11
+
+import time
+import traceback
+import subprocess
+from os import environ
+from datetime import datetime
+from dataclasses import dataclass
+import re
+from typing import Self
+
+MAX_EMPTY_SECS = int(environ.get('MAX_EMPTY_SECS') or (30*60))
+POLL_INTERVAL_SECS = int(environ.get('POLL_INTERVAL_SECS') or 60)
+CMD_WAIT = float(environ.get('CMD_WAIT') or 0.1)
+TMUX_NAME = str(environ.get('TMUX_NAME') or 'minecraft_server')
+
+LIST_CMD = f'tmux send-keys -t {TMUX_NAME} list ENTER'
+CAPT_CMD = f'tmux capture-pane -pt {TMUX_NAME}'
+STOP_CMD = f'tmux send-keys -t {TMUX_NAME} stop ENTER'
+empty_since: datetime | None = None
+
+
+@dataclass
+class ListOuput():
+    time: datetime
+    players: list[str]
+
+    @classmethod
+    def from_console_output(cls, stdout: str) -> Self:
+        def get_list_time(list_line: str) -> datetime:
+            timestamp_str = re.findall(r'\[.*? INFO\]', list_line)[0]
+            timestamp = datetime.strptime(timestamp_str[1:-6], "%H:%M:%S")
+            # Replace the date with today (no date is given in the logs)
+            return timestamp.replace(
+                day=current_time.day,
+                month=current_time.month,
+                year=current_time.year)
+
+        output_lines = stdout.split('\n')
+        list_lines = [
+            line for line in output_lines if "players online:" in line]
+        latest_list_line = list_lines[-1]
+
+        timestamp = get_list_time(latest_list_line)
+        players_str = latest_list_line.split("online:")[1]
+        players = players_str.split(", ")
+        # remove empty strings
+        players = [player for player in players if player != ""]
+        # strip surrounding spaces
+        players = [player.strip() for player in players]
+
+        return cls(timestamp, players)
+
+
+while True:
+    time.sleep(POLL_INTERVAL_SECS)
+    current_time = datetime.now()
+
+    result = subprocess.run(LIST_CMD.split())
+    if result.returncode != 0:
+        print('Could not retrieve the player list')
+        continue
+
+    # Wait for the response to appear in the console
+    time.sleep(CMD_WAIT)
+
+    # Scrape the output
+    result = subprocess.run(
+        CAPT_CMD.split(), capture_output=True, encoding='utf-8')
+
+    if result.returncode != 0:
+        print('Could not contact the server')
+        empty_since = None
+        continue
+    else:
+        try:
+            latest_list = ListOuput.from_console_output(result.stdout)
+        except Exception as e:
+            print(f'Could not get list output: {e}')
+            traceback.print_exception(type(e), e, e.__traceback__)
+            empty_since = None
+            continue
+
+    # Shut down the server if empty for too long
+    if len(latest_list.players) == 0:
+        empty_since = empty_since or latest_list.time
+        empty_secs = (latest_list.time - empty_since).total_seconds()
+        print(f'It\'s been {empty_secs}s since there was someone online')
+
+        if empty_secs > MAX_EMPTY_SECS:
+            subprocess.run(STOP_CMD.split())
+
+    else:
+        print(f"There are players online: {latest_list.players}")
+        empty_since = None
